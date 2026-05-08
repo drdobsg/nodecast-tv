@@ -12,6 +12,7 @@ const https = require('https');
 const { spawn } = require('child_process');
 const ffmpegPath = require('ffmpeg-static');
 const { Readable } = require('stream');
+const { once } = require('events');
 
 // Default cache max age in hours
 const DEFAULT_MAX_AGE_HOURS = 24;
@@ -740,23 +741,27 @@ router.get('/stream', async (req, res) => {
                 return res.send(manifest);
             }
 
-            // Binary content (Video Segment or Key): Collect and send
-            console.log(`[Proxy] Serving binary content (${contentType})`);
+            // Binary content (video segment, key, or direct media): stream it
+            // immediately so large VOD files do not sit silent behind a proxy.
+            console.log(`[Proxy] Streaming binary content (${contentType})`);
             res.set('Content-Type', contentType || 'application/octet-stream');
 
-            // For small files (like encryption keys), collect all data and send at once
-            // This ensures proper Content-Length and response completion
-            const chunks = [firstChunk];
+            if (!res.write(firstChunk)) {
+                await once(res, 'drain');
+            }
+
             let result = await iterator.next();
             while (!result.done) {
-                chunks.push(Buffer.from(result.value));
+                if (res.destroyed) {
+                    return;
+                }
+                if (!res.write(Buffer.from(result.value))) {
+                    await once(res, 'drain');
+                }
                 result = await iterator.next();
             }
-            const fullContent = Buffer.concat(chunks);
 
-            // Set Content-Length for proper client handling
-            res.set('Content-Length', fullContent.length);
-            res.send(fullContent);
+            res.end();
             return; // Success - exit the retry loop
 
         } catch (err) {
