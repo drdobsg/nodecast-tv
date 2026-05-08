@@ -170,19 +170,19 @@ class HomePage {
         this.isLoading = true;
 
         try {
-            // 0. Load Favorite Channels (first section)
-            await this.renderFavoriteChannels();
+            const historyPromise = window.API.request('GET', '/history?limit=12')
+                .then(history => {
+                    if (history && Array.isArray(history)) {
+                        this.renderHistory(history);
+                    }
+                });
 
-            // 1. Load Watch History
-            const history = await window.API.request('GET', '/history?limit=12');
-            if (history && Array.isArray(history)) {
-                this.renderHistory(history);
-            }
-
-            // 2. Load Recent Items
-            this.renderRecentMovies();
-            this.renderRecentSeries();
-
+            await Promise.all([
+                this.renderFavoriteChannels(),
+                historyPromise,
+                this.renderRecentMovies(),
+                this.renderRecentSeries()
+            ]);
         } catch (err) {
             console.error('[Dashboard] Error loading data:', err);
         } finally {
@@ -196,48 +196,23 @@ class HomePage {
         if (!list || !section) return;
 
         try {
-            // Fetch favorite channels for current user
-            const favorites = await window.API.request('GET', '/favorites?itemType=channel');
+            const favorites = await window.API.request('GET', '/favorites?itemType=channel&details=channel');
 
             if (!favorites || favorites.length === 0) {
                 list.innerHTML = '<div class="empty-state hint">Add channels to favorites from Live TV</div>';
                 return;
             }
 
-            // Ensure channel list is loaded to resolve channel details
-            const channelList = this.app.channelList;
-            if (!channelList.channels || channelList.channels.length === 0) {
-                await channelList.loadSources();
-                await channelList.loadChannels();
-            }
-
-            // Match favorites to channel data
-            const channels = [];
-            for (const fav of favorites) {
-                // Find channel in loaded channel list
-                const channel = channelList.channels.find(ch =>
-                    String(ch.sourceId) === String(fav.source_id) &&
-                    (String(ch.id) === String(fav.item_id) || String(ch.streamId) === String(fav.item_id))
-                );
-                if (channel) {
-                    channels.push({ ...channel, favoriteId: fav.id });
-                }
-            }
-
-            if (channels.length === 0) {
-                list.innerHTML = '<div class="empty-state hint">Add channels to favorites from Live TV</div>';
-                return;
-            }
-
             // Render channel tiles
-            list.innerHTML = channels.map(ch => this.createChannelTile(ch)).join('');
+            list.innerHTML = favorites.map(ch => this.createChannelTile(ch)).join('');
 
             // Attach click handlers
             list.querySelectorAll('.channel-tile').forEach(tile => {
-                tile.addEventListener('click', () => {
+                tile.addEventListener('click', async () => {
                     const channelId = tile.dataset.channelId;
                     const sourceId = tile.dataset.sourceId;
-                    this.playChannel(channelId, sourceId);
+                    const sourceType = tile.dataset.sourceType;
+                    await this.playChannel(channelId, sourceId, sourceType);
                 });
             });
 
@@ -256,7 +231,7 @@ class HomePage {
         const name = channel.name || 'Unknown';
 
         return `
-            <div class="channel-tile" data-channel-id="${channel.id}" data-source-id="${channel.sourceId}">
+            <div class="channel-tile" data-channel-id="${channel.channelId || channel.id}" data-source-id="${channel.sourceId}" data-source-type="${channel.sourceType}">
                 <div class="tile-logo">
                     <img src="${logoUrl}" alt="${name}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.png'">
                 </div>
@@ -265,27 +240,40 @@ class HomePage {
         `;
     }
 
-    playChannel(channelId, sourceId) {
+    async playChannel(channelId, sourceId, sourceType) {
         // Navigate to Live TV and select the channel
         this.app.navigateTo('live');
 
         // Small delay to ensure page is ready
-        setTimeout(() => {
+        setTimeout(async () => {
             const channelList = this.app.channelList;
-            if (channelList) {
-                // Find and select the channel
-                const channel = channelList.channels.find(ch =>
-                    String(ch.id) === String(channelId) && String(ch.sourceId) === String(sourceId)
-                );
-                if (channel) {
-                    channelList.selectChannel({
-                        channelId: channel.id,
-                        sourceId: channel.sourceId,
-                        sourceType: channel.sourceType,
-                        streamId: channel.streamId || '',
-                        url: channel.url || ''
-                    });
-                }
+            if (!channelList) return;
+
+            if (!channelList.sources || channelList.sources.length === 0) {
+                await channelList.loadSources();
+            }
+
+            const targetSource = sourceType ? `${sourceType}:${sourceId}` : '';
+            const hasTargetChannel = channelList.channels.some(ch =>
+                String(ch.id) === String(channelId) && String(ch.sourceId) === String(sourceId)
+            );
+
+            if (targetSource && (channelList.sourceSelect.value !== targetSource || !hasTargetChannel)) {
+                channelList.sourceSelect.value = targetSource;
+                await channelList.loadChannels();
+            }
+
+            const channel = channelList.channels.find(ch =>
+                String(ch.id) === String(channelId) && String(ch.sourceId) === String(sourceId)
+            );
+            if (channel) {
+                await channelList.selectChannel({
+                    channelId: channel.id,
+                    sourceId: channel.sourceId,
+                    sourceType: channel.sourceType,
+                    streamId: channel.streamId || '',
+                    url: channel.url || ''
+                });
             }
         }, 100);
     }

@@ -25,7 +25,7 @@ NodeCast TV can be installed on Unraid either from the published container image
    ```text
    LIBVA_DRIVER_NAME=iHD
    HW_DEVICE=/dev/dri/renderD128
-   Extra Parameters: --device=/dev/dri:/dev/dri
+   DRI Device: /dev/dri
    ```
 
 7. Apply the template and open `http://UNRAID-IP:3000`.

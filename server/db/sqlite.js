@@ -40,6 +40,8 @@ function initSchema() {
             data JSON -- Extra provider data
         );
         CREATE INDEX IF NOT EXISTS idx_categories_source_type ON categories(source_id, type);
+        CREATE INDEX IF NOT EXISTS idx_categories_hidden_lookup
+            ON categories(source_id, category_id, type, is_hidden);
     `);
 
     // Playlist Items (Channels, Movies, Series, Episodes)
@@ -71,6 +73,8 @@ function initSchema() {
         );
         CREATE INDEX IF NOT EXISTS idx_items_source_type ON playlist_items(source_id, type);
         CREATE INDEX IF NOT EXISTS idx_items_category ON playlist_items(source_id, category_id);
+        CREATE INDEX IF NOT EXISTS idx_items_source_type_item ON playlist_items(source_id, type, item_id);
+        CREATE INDEX IF NOT EXISTS idx_items_recent_visible ON playlist_items(type, is_hidden, added_at DESC);
     `);
 
     // EPG Programs
@@ -206,6 +210,40 @@ const favorites = {
             set.add(`${row.source_id}:${row.item_id}:${row.item_type}`);
         }
         return set;
+    },
+
+    getDetailedChannels(userId) {
+        const db = getDb();
+        return db.prepare(`
+            SELECT
+                f.id,
+                f.source_id,
+                f.item_id,
+                f.item_type,
+                f.created_at,
+                p.name,
+                p.stream_icon,
+                p.stream_url,
+                p.category_id,
+                p.data
+            FROM favorites f
+            JOIN playlist_items p
+              ON p.source_id = f.source_id
+             AND p.item_id = f.item_id
+             AND p.type = 'live'
+            WHERE f.user_id = ?
+              AND f.item_type = 'channel'
+              AND p.is_hidden = 0
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM categories c
+                  WHERE c.source_id = p.source_id
+                    AND c.category_id = p.category_id
+                    AND c.type = p.type
+                    AND c.is_hidden = 1
+              )
+            ORDER BY f.created_at DESC
+        `).all(userId);
     }
 };
 
