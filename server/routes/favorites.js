@@ -19,15 +19,17 @@ router.get('/', async (req, res) => {
                 const source = sourceMap.get(row.source_id);
                 const sourceType = source?.type || 'xtream';
                 const data = JSON.parse(row.data || '{}');
+                const channelId = `${sourceType}_${row.source_id}_${row.item_id}`;
 
                 return {
                     id: row.id,
                     source_id: row.source_id,
                     item_id: row.item_id,
+                    favorite_item_id: row.favorite_item_id,
                     item_type: row.item_type,
                     sourceId: row.source_id,
                     sourceType,
-                    channelId: `${sourceType}_${row.source_id}_${row.item_id}`,
+                    channelId,
                     streamId: row.item_id,
                     name: row.name,
                     tvgLogo: row.stream_icon,

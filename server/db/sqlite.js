@@ -218,9 +218,11 @@ const favorites = {
             SELECT
                 f.id,
                 f.source_id,
-                f.item_id,
+                f.item_id AS favorite_item_id,
                 f.item_type,
                 f.created_at,
+                p.id AS db_item_id,
+                p.item_id,
                 p.name,
                 p.stream_icon,
                 p.stream_url,
@@ -229,8 +231,13 @@ const favorites = {
             FROM favorites f
             JOIN playlist_items p
               ON p.source_id = f.source_id
-             AND p.item_id = f.item_id
              AND p.type = 'live'
+             AND (
+                 p.item_id = f.item_id
+                 OR p.id = f.item_id
+                 OR f.item_id = ('xtream_' || f.source_id || '_' || p.item_id)
+                 OR f.item_id = ('m3u_' || f.source_id || '_' || p.item_id)
+             )
             WHERE f.user_id = ?
               AND f.item_type = 'channel'
               AND p.is_hidden = 0
