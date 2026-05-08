@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>nodecast-tv</Name>
+  <Repository>ghcr.io/technomancer702/nodecast-tv:latest</Repository>
+  <Registry>https://github.com/technomancer702/nodecast-tv/pkgs/container/nodecast-tv</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/technomancer702/nodecast-tv/issues</Support>
+  <Project>https://github.com/technomancer702/nodecast-tv</Project>
+  <Overview>Modern web-based IPTV player with Live TV, EPG, VOD, user authentication, optional OIDC SSO, and Intel ARC/VAAPI/QSV hardware transcoding support.</Overview>
+  <Category>MediaApp:Video MediaServer:Video</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/technomancer702/nodecast-tv/main/unraid/nodecast-tv.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/technomancer702/nodecast-tv/main/public/img/logo-banner.png</Icon>
+  <ExtraParams>--device=/dev/dri:/dev/dri</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>For Intel ARC hardware transcoding, expose /dev/dri and set HW_DEVICE to the ARC render node, for example /dev/dri/renderD128 or /dev/dri/renderD129.</Requires>
+  <Config Name="WebUI Port" Target="3000" Default="3000" Mode="tcp" Description="Host port for the NodeCast TV web interface." Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/nodecast-tv/data" Mode="rw" Description="Persistent database and application data." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nodecast-tv/data</Config>
+  <Config Name="Transcode Cache" Target="/app/transcode-cache" Default="/mnt/cache/appdata/nodecast-tv/transcode-cache" Mode="rw" Description="Temporary HLS segment cache. Prefer a cache/SSD-backed path." Type="Path" Display="always" Required="true" Mask="false">/mnt/cache/appdata/nodecast-tv/transcode-cache</Config>
+  <Config Name="NODE_ENV" Target="NODE_ENV" Default="production" Mode="" Description="Node runtime environment." Type="Variable" Display="advanced-hide" Required="true" Mask="false">production</Config>
+  <Config Name="JWT Secret" Target="JWT_SECRET" Default="" Mode="" Description="Required for stable login sessions. Set this to a long random string before first use." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Intel VAAPI Driver" Target="LIBVA_DRIVER_NAME" Default="iHD" Mode="" Description="Intel media driver. Use iHD for Intel ARC and modern Intel GPUs." Type="Variable" Display="always" Required="false" Mask="false">iHD</Config>
+  <Config Name="Intel Render Device" Target="HW_DEVICE" Default="/dev/dri/renderD128" Mode="" Description="Render node used for VAAPI/QSV. If Unraid shows multiple render nodes, set this to the Intel ARC node." Type="Variable" Display="always" Required="false" Mask="false">/dev/dri/renderD128</Config>
+  <Config Name="OIDC Issuer URL" Target="OIDC_ISSUER_URL" Default="" Mode="" Description="Optional SSO issuer URL. Leave blank to keep SSO disabled." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+  <Config Name="OIDC Client ID" Target="OIDC_CLIENT_ID" Default="" Mode="" Description="Optional SSO client ID. Leave blank to keep SSO disabled." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+  <Config Name="OIDC Client Secret" Target="OIDC_CLIENT_SECRET" Default="" Mode="" Description="Optional SSO client secret. Leave blank to keep SSO disabled." Type="Variable" Display="advanced-hide" Required="false" Mask="true"/>
+  <Config Name="OIDC Callback URL" Target="OIDC_CALLBACK_URL" Default="" Mode="" Description="Optional SSO callback URL, for example https://nodecast.example.com/api/auth/oidc/callback." Type="Variable" Display="advanced-hide" Required="false" Mask="false"/>
+</Container>

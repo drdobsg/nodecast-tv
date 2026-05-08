@@ -29,13 +29,26 @@ auth.configureOidcStrategy(
  * Start OIDC Login
  * GET /api/auth/oidc/login
  */
-router.get('/oidc/login', auth.passport.authenticate('openidconnect'));
+router.get('/oidc/login', (req, res, next) => {
+    if (!auth.isOidcConfigured()) {
+        return res.redirect('/login.html?error=SSO+is+not+configured');
+    }
+
+    return auth.passport.authenticate('openidconnect')(req, res, next);
+});
 
 /**
  * OIDC Callback
  * GET /api/auth/oidc/callback
  */
 router.get('/oidc/callback',
+    (req, res, next) => {
+        if (!auth.isOidcConfigured()) {
+            return res.redirect('/login.html?error=SSO+is+not+configured');
+        }
+
+        return next();
+    },
     auth.passport.authenticate('openidconnect', { session: false, failureRedirect: '/login.html?error=SSO+Failed' }),
     (req, res) => {
         // Successful authentication
@@ -45,6 +58,14 @@ router.get('/oidc/callback',
         res.redirect(`/?token=${token}`);
     }
 );
+
+/**
+ * Check if OIDC SSO is enabled
+ * GET /api/auth/oidc/enabled
+ */
+router.get('/oidc/enabled', (req, res) => {
+    res.json({ enabled: auth.isOidcConfigured() });
+});
 
 /**
  * Check if initial setup is required

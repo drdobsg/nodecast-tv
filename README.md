@@ -71,16 +71,19 @@ You can run nodecast-tv easily using Docker.
     ```yaml
     services:
       nodecast-tv:
-        build: https://github.com/technomancer702/nodecast-tv.git#main
+        image: ghcr.io/technomancer702/nodecast-tv:latest
+        build: .
         container_name: nodecast-tv
         ports:
           - "3000:3000" # Host:Container
         volumes:
           - ./data:/app/data
-        restart: unless-stopped
+          - ./transcode-cache:/app/transcode-cache
         environment:
-          - NODE_ENV=production
-          - PORT=3000 # Optional: Internal container port
+          NODE_ENV: production
+          PORT: 3000 # Optional: Internal container port
+          JWT_SECRET: change-this-long-random-secret
+        restart: unless-stopped
     ```
 
 2.  Run the container:
@@ -89,6 +92,8 @@ You can run nodecast-tv easily using Docker.
     ```
 
 The application will be available at `http://localhost:3000`.
+
+For Unraid-specific installation, including the Docker template and Intel ARC setup, see [UNRAID.md](UNRAID.md).
 
 
 ### Hardware Acceleration Setup
@@ -100,9 +105,32 @@ Update your `docker-compose.yml` to map the DRI devices and add necessary groups
 ```yaml
     devices:
       - /dev/dri:/dev/dri # Required for VAAPI/QuickSync/AMF (Linux)
+    environment:
+      LIBVA_DRIVER_NAME: iHD # Intel ARC / modern Intel GPUs
+      HW_DEVICE: /dev/dri/renderD128 # Change if your ARC card is renderD129, etc.
     # group_add:       # Optional: Needed mainly if you run as non-root
     #   - "video"      # Run on host: getent group video
     #   - "render"     # Run on host: getent group render
+```
+
+For Unraid, use appdata-backed volumes and pass the render device through to the container:
+
+```yaml
+    volumes:
+      - /mnt/user/appdata/nodecast-tv/data:/app/data
+      - /mnt/cache/appdata/nodecast-tv/transcode-cache:/app/transcode-cache
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      LIBVA_DRIVER_NAME: iHD
+      HW_DEVICE: /dev/dri/renderD128
+```
+
+If your Unraid host has more than one GPU, run `ls -l /dev/dri` on the host and set `HW_DEVICE` to the ARC render node. `vainfo` is installed in the container image, so verify VAAPI from inside the running container:
+
+```bash
+docker exec -it nodecast-tv vainfo --display drm --device /dev/dri/renderD128
+docker exec -it nodecast-tv sh -lc "ffmpeg -hide_banner -encoders | grep -E 'vaapi|qsv'"
 ```
 
 **2. NVIDIA (NVENC)**
@@ -130,6 +158,8 @@ OIDC_CLIENT_ID=your_client_id
 OIDC_CLIENT_SECRET=your_client_secret
 OIDC_CALLBACK_URL=http://localhost:3000/api/auth/oidc/callback # Adjust for your domain
 ```
+
+SSO is disabled by default. The login page hides the SSO button until the required OIDC environment variables are configured.
 
 **Note:** New users signing in via SSO are automatically assigned the **Viewer** role. You must manually promote them to Admin if desired.
 

@@ -247,8 +247,20 @@
 
         async function checkSetupRequired() {
             try {
-                const response = await fetch('/api/auth/setup-required');
-                const data = await response.json();
+                const [setupResponse, oidcResponse] = await Promise.all([
+                    fetch('/api/auth/setup-required'),
+                    fetch('/api/auth/oidc/enabled')
+                ]);
+
+                const data = await setupResponse.json();
+                const oidcData = await oidcResponse.json();
+                const ssoDivider = document.querySelector('.sso-divider');
+                const ssoButton = document.getElementById('btn-sso-login');
+
+                if (!oidcData.enabled) {
+                    ssoDivider.style.display = 'none';
+                    ssoButton.style.display = 'none';
+                }
 
                 if (data.setupRequired) {
                     isSetupMode = true;
@@ -257,8 +269,8 @@
                     document.getElementById('setup-message').classList.add('show');
                     document.getElementById('password').placeholder = 'Minimum 6 characters';
                     // Hide SSO in setup mode
-                    document.querySelector('.sso-divider').style.display = 'none';
-                    document.getElementById('btn-sso-login').style.display = 'none';
+                    ssoDivider.style.display = 'none';
+                    ssoButton.style.display = 'none';
                 }
             } catch (err) {
                 console.error('Error checking setup status:', err);

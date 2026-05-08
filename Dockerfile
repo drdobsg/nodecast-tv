@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     ffmpeg \
+    pciutils \
     python3 \
     make \
     g++ \

@@ -10,10 +10,33 @@
  */
 
 const { execSync, exec } = require('child_process');
+const fs = require('fs');
 const os = require('os');
 
 // Cache detection results
 let hwCapabilities = null;
+const DEFAULT_DRI_DEVICE = '/dev/dri/renderD128';
+
+function getConfiguredDriDevice() {
+    return process.env.HW_DEVICE || process.env.LIBVA_DEVICE || DEFAULT_DRI_DEVICE;
+}
+
+function getRenderDevices() {
+    const configuredDevice = getConfiguredDriDevice();
+
+    if (configuredDevice && fs.existsSync(configuredDevice)) {
+        return [configuredDevice];
+    }
+
+    try {
+        return fs.readdirSync('/dev/dri')
+            .filter(device => device.startsWith('renderD'))
+            .sort()
+            .map(device => `/dev/dri/${device}`);
+    } catch {
+        return [];
+    }
+}
 
 /**
  * NVIDIA GPU compute capability requirements for codec support
@@ -85,33 +108,22 @@ async function detectVAAPI() {
         return { available: false, reason: 'VAAPI is Linux-only' };
     }
 
-    try {
-        // Check for render nodes
-        const result = execSync('ls /dev/dri/renderD* 2>/dev/null', {
-            timeout: 2000,
-            encoding: 'utf-8',
-            shell: true
-        });
-
-        const devices = result.trim().split('\n').filter(d => d);
-        if (devices.length === 0) {
-            return { available: false, reason: 'No render devices found' };
-        }
-
-        // Use first available device
-        const device = devices[0];
-        console.log(`[HwDetect] VAAPI device found: ${device}`);
-
-        return {
-            available: true,
-            device,
-            encoder: 'h264_vaapi',
-            decoder: 'vaapi'
-        };
-    } catch (err) {
-        console.log('[HwDetect] VAAPI not available');
-        return { available: false };
+    const devices = getRenderDevices();
+    if (devices.length === 0) {
+        return { available: false, reason: 'No render devices found' };
     }
+
+    // Use configured device first, then first available render node.
+    const device = devices[0];
+    console.log(`[HwDetect] VAAPI device found: ${device}`);
+
+    return {
+        available: true,
+        device,
+        driver: process.env.LIBVA_DRIVER_NAME || null,
+        encoder: 'h264_vaapi',
+        decoder: 'vaapi'
+    };
 }
 
 /**
@@ -142,16 +154,25 @@ async function detectQuickSync() {
             } catch {
                 hasIntelGpu = false;
             }
+
+            // Containers may not expose enough PCI metadata. If the user has
+            // explicitly selected Intel's media driver and passed a render node,
+            // treat QSV as available and let FFmpeg be the final authority.
+            if (!hasIntelGpu && process.env.LIBVA_DRIVER_NAME === 'iHD' && getRenderDevices().length > 0) {
+                hasIntelGpu = true;
+            }
         }
 
         if (!hasIntelGpu) {
             return { available: false, reason: 'No Intel GPU found' };
         }
 
-        console.log('[HwDetect] Intel GPU detected, QSV may be available');
+        const device = getRenderDevices()[0] || getConfiguredDriDevice();
+        console.log(`[HwDetect] Intel GPU detected, QSV may be available on ${device}`);
 
         return {
             available: true,
+            device,
             encoder: 'h264_qsv',
             decoder: 'h264_qsv'
         };
@@ -274,6 +295,7 @@ module.exports = {
     detect,
     getCapabilities,
     refresh,
+    getConfiguredDriDevice,
     detectNvidia,
     detectAMF,
     detectVAAPI,

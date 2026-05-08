@@ -1,13 +1,30 @@
 services:
   nodecast-tv:
     image: ghcr.io/technomancer702/nodecast-tv:latest
-    build: https://github.com/technomancer702/nodecast-tv.git#main
+    build: .
     container_name: nodecast-tv
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
-    restart: unless-stopped
+      - /mnt/user/appdata/nodecast-tv/data:/app/data
+      - /mnt/cache/appdata/nodecast-tv/transcode-cache:/app/transcode-cache
+    devices:
+      - /dev/dri:/dev/dri
     environment:
-      - NODE_ENV=production
-      - PORT=3000 # Internal container port
+      NODE_ENV: production
+      PORT: 3000
+      JWT_SECRET: change-this-long-random-secret
+      LIBVA_DRIVER_NAME: iHD
+      HW_DEVICE: /dev/dri/renderD128
+
+      # Optional SSO/OIDC. Leave unset/commented to keep SSO disabled.
+      # OIDC_ISSUER_URL: https://auth.example.com/application/o/nodecast/
+      # OIDC_CLIENT_ID: nodecast-tv
+      # OIDC_CLIENT_SECRET: your-client-secret
+      # OIDC_CALLBACK_URL: https://nodecast.example.com/api/auth/oidc/callback
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

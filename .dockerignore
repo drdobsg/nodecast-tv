@@ -1,0 +1,15 @@
+node_modules/
+data/
+user_data/
+transcode-cache/
+coverage/
+dist/
+release/
+.git/
+.github/
+.codex/
+.agents/
+.env
+*.log
+Dockerfile
+docker-compose.yml

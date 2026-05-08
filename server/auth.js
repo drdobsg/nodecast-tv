@@ -14,6 +14,10 @@ const { Strategy: LocalStrategy } = require('passport-local');
 const JWT_SECRET = process.env.JWT_SECRET || 'nodecast-tv-secret-key-change-in-production';
 const JWT_EXPIRY = '24h';
 
+function isOidcConfigured() {
+    return !!(process.env.OIDC_ISSUER_URL && process.env.OIDC_CLIENT_ID && process.env.OIDC_CLIENT_SECRET);
+}
+
 /**
  * Hash password using bcrypt
  */
@@ -133,7 +137,7 @@ function configureSessionSerialization(getUserById) {
  * Configure Passport OpenID Connect Strategy
  */
 function configureOidcStrategy(findUserByOidcId, findUserByEmail, createUser) {
-    if (!process.env.OIDC_ISSUER_URL || !process.env.OIDC_CLIENT_ID || !process.env.OIDC_CLIENT_SECRET) {
+    if (!isOidcConfigured()) {
         console.warn('OIDC configuration missing - SSO disabled');
         return;
     }
@@ -258,6 +262,7 @@ module.exports = {
     verifyPassword,
     generateToken,
     verifyToken,
+    isOidcConfigured,
     configureLocalStrategy,
     configureJwtStrategy,
     configureSessionSerialization,

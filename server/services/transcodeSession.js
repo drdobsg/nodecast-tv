@@ -70,6 +70,7 @@ class TranscodeSession extends EventEmitter {
             userAgent: options.userAgent || 'Mozilla/5.0',
             seekOffset: options.seekOffset || 0,
             hwEncoder: options.hwEncoder || 'software',
+            hwDevice: options.hwDevice || process.env.HW_DEVICE || process.env.LIBVA_DEVICE || '/dev/dri/renderD128',
             maxResolution: options.maxResolution || '1080p',
             quality: options.quality || 'medium',
             // Upscaling options
@@ -299,13 +300,14 @@ class TranscodeSession extends EventEmitter {
                 // VAAPI hardware decoding (Linux)
                 args.push(
                     '-hwaccel', 'vaapi',
-                    '-hwaccel_device', '/dev/dri/renderD128',
+                    '-hwaccel_device', this.options.hwDevice,
                     '-hwaccel_output_format', 'vaapi'
                 );
                 break;
             case 'qsv':
                 // Intel QuickSync hardware decoding
                 args.push(
+                    '-qsv_device', this.options.hwDevice,
                     '-hwaccel', 'qsv',
                     '-hwaccel_output_format', 'qsv'
                 );
